@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Document</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/2.2.0/socket.io.dev.js"></script>
+</head>
+
+<body>
+    <div class="events"></div>
+    <input id="message">
+    <button id="send">send</button>
+    <script>
+
+        // const message = document.querySelector('#message');
+        const send = document.querySelector('#send');
+
+        // var clientWebSocket = new WebSocket("ws://localhost:8080/event-emitter");
+        // clientWebSocket.onopen = function () {
+        //     console.log("clientWebSocket.onopen", clientWebSocket);
+        //     console.log("clientWebSocket.readyState", "websocketstatus");
+        //     // clientWebSocket.send("event-me-from-browser");
+        // }
+        // clientWebSocket.onclose = function (error) {
+        //     console.log("clientWebSocket.onclose", clientWebSocket, error);
+        //     events("Closing connection");
+        // }
+        // clientWebSocket.onerror = function (error) {
+        //     console.log("clientWebSocket.onerror", clientWebSocket, error);
+        //     events("An error occured");
+        // }
+        // clientWebSocket.onmessage = function (error) {
+        //     console.log("clientWebSocket.onmessage", clientWebSocket, error);
+        //     events(error.data);
+        // }
+
+        // function events(responseEvent) {
+        //     document.querySelector(".events").innerHTML += responseEvent + "<br>";
+        // }
+
+        const socket = io('http://localhost:3000', {transports: ['websocket']});
+
+        socket.emit('rooms');
+
+        socket.emit('new_user', { name: 'Lisomatrix' });
+
+        socket.on('rooms', (data) => {
+            console.log(data);
+        });
+
+        send.addEventListener('click', (e) => {
+            // clientWebSocket.send(JSON.stringify({ eventId: message.value, eventDt: message.value }));
+            socket.emit('new_room', { name: 'testing room' });
+        });
+
+    </script>
+</body>
+
+</html>
