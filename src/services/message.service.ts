@@ -6,6 +6,7 @@ export interface IMessage {
     destinyId: string;
     message: any;
     sent?: boolean;
+    sentAt?: number;
 }
 
 @Injectable()
@@ -26,6 +27,13 @@ export class MessageService {
     }
 
     public async findAllMessages(userId: string) {
-        return await this.databaseService.findDocuments(this.collection, { destinyId: userId });
+
+        return await this.databaseService.findDocuments(this.collection, { 
+            $or: [
+                { destinyId: userId },
+                { authorId: userId },
+            ],
+        });
+        // return await this.databaseService.findDocuments(this.collection, { destinyId: userId });
     }
 }

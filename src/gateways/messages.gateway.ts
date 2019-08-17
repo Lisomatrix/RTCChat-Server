@@ -1,9 +1,9 @@
-import { WebSocketGateway, WebSocketServer, SubscribeMessage } from "@nestjs/websockets";
-import { AuthGuard } from "src/guards/websocket.guard";
-import { UseGuards } from "@nestjs/common";
-import { UserService } from "dist/src/services/user.service";
-import { Client, Server } from "socket.io";
-import { IMessage, MessageService } from "src/services/message.service";
+import { WebSocketGateway, WebSocketServer, SubscribeMessage, WsResponse } from '@nestjs/websockets';
+import { AuthGuard } from '../guards/websocket.guard';
+import { UseGuards } from '@nestjs/common';
+import { UserService } from '../services/user.service';
+import { Client, Server } from 'socket.io';
+import { IMessage, MessageService } from '../services/message.service';
 
 @UseGuards(AuthGuard)
 @WebSocketGateway()
@@ -20,33 +20,35 @@ export class MessagesGateway {
     private async handleSendMessage(client: Client, data: string) {
         const message = JSON.parse(data) as IMessage;
 
-        const user = await this.userService.findById(message.destinyId);
+        message.sentAt = Date.now();
 
-        if (user.sessionId && user.sessionId.trim() !== '') {
-            this.server.to(user.sessionId).emit('message', message);
-
-            message.sent = true;
+        if (message.authorId !== message.destinyId) {
+            this.server.to(message.authorId).emit('message', message);
         }
 
-        if (!message.sent) {
-            message.sent = false;
-        }
+        this.server.to(message.destinyId).emit('message', message);
+
+        message.sent = true;
 
         await this.messagesService.addMessage(message);
     }
 
     @SubscribeMessage('get_new_messages')
-    private async handleGetUnreadMessages(client: Client) {
-        
+    private async handleGetUnreadMessages(client: Client): Promise<WsResponse<any[]>> {
+
         const user = await this.userService.findBySessionId(client.id);
 
-        return await this.messagesService.findUnreadMessages(user.id);
+        const messages = await (await this.messagesService.findUnreadMessages(user.id)).toArray();
+
+        return { event: 'get_new_messages', data: messages };
     }
 
     @SubscribeMessage('get_messages')
     private async handleGetMessages(client: Client) {
         const user = await this.userService.findBySessionId(client.id);
 
-        return await this.messagesService.findAllMessages(user.id);
+        const messages = await (await this.messagesService.findAllMessages(user.id)).toArray();
+
+        return { event: 'get_messages', data: messages };
     }
 }

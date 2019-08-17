@@ -1,7 +1,7 @@
-import { User } from "./user";
+import { User } from './user';
 
 export interface Room {
     id: string;
-    members: Array<User>,
+    members: User[];
     name: string;
 }

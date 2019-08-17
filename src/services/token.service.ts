@@ -1,6 +1,8 @@
-import { Injectable } from "@nestjs/common";
+import { Injectable } from '@nestjs/common';
 import * as uuid from 'uuid/v1';
-import { UserService } from "dist/src/services/user.service";
+import { UserService } from './user.service';
+import { RedisService } from './redis.service';
+import * as argon from 'argon2';
 
 interface IToken {
     token: string;
@@ -17,14 +19,14 @@ export class TokenService {
 
     private tokens = new Array<IToken>();
 
-    constructor(private userService: UserService) {
+    constructor(private userService: UserService, private redisService: RedisService) {
 
     }
 
     public async authenticate(authenticationData: IAuthentication) {
         const foundUser = await this.userService.findByName(authenticationData.username);
-        
-        if (foundUser && foundUser.password === authenticationData.password) {
+
+        if (foundUser && (await argon.verify(foundUser.password, authenticationData.password))) {
             const token = this.generateToken(foundUser.id);
 
             return token;
@@ -37,22 +39,17 @@ export class TokenService {
 
         const token: IToken = {
             token: uuid(),
-            userId
+            userId,
         };
 
-        this.tokens.push(token);
+        this.redisService.setValue(token.token, userId);
 
         return token;
     }
 
-    public getUserId(token: string): string | null {
+    public async getUserId(token: string): Promise<string | null> {
+        const userId = await this.redisService.getValue(token);
 
-        for (var i = 0, n = token.length; i < n; i++) {
-            if (this.tokens[i] && this.tokens[i].token === token) {
-                return this.tokens[i].userId;
-            }            
-        }
-
-        return null;
+        return userId;
     }
 }

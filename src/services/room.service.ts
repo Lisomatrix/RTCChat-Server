@@ -1,11 +1,11 @@
 import { Injectable } from '@nestjs/common';
-import { Room } from 'src/models/room';
+import { Room } from '../models/room';
 import * as uuid from 'uuid/v1';
-import { User } from 'src/models/user';
+import { User } from '../models/user';
 import { Subject, Observable } from 'rxjs';
-import { WebSocketServer, OnGatewayInit } from '@nestjs/websockets';
+import { WebSocketServer } from '@nestjs/websockets';
 import { Server } from 'socket.io';
-import { UserService } from 'src/services/user.service';
+import { UserService } from '../services/user.service';
 import { DatabaseService } from './database.service';
 
 @Injectable()
@@ -20,12 +20,12 @@ export class RoomService {
     private collection = 'rooms';
 
     constructor(private databaseService: DatabaseService, private userService: UserService) {
-        
+
     }
 
     public async getRoomMember(user: User) {
 
-        const room = await this.databaseService.findDocument(this.collection, { "members.id": user.id }) as Room;
+        const room = await this.databaseService.findDocument(this.collection, { 'members.id': user.id }) as Room;
 
         if (room.members[0].id === user.id) {
             return room.members[1];
@@ -43,25 +43,25 @@ export class RoomService {
             .emit('user_joined');
 
         room.members.push(user);
-        
+
         await this.databaseService.replaceDocument(this.collection, { id: room.id }, room);
 
         return room;
     }
 
-    public async createRoom(name: string, user: User): Promise<Room> { 
+    public async createRoom(name: string, user: User): Promise<Room> {
 
         const newRoom: Room = {
             id: uuid(),
             name,
-            members: [user]
+            members: [user],
         };
 
         await this.databaseService.insertDocument(this.collection, newRoom);
 
         this.rooms.push(newRoom);
         this.roomSubject.next(newRoom);
-        
+
         return newRoom;
     }
 

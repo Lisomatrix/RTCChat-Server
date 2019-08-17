@@ -1,8 +1,9 @@
 import { Injectable } from '@nestjs/common';
-import { User } from 'src/models/user';
+import { User } from '../models/user';
 import * as uuid from 'uuid/v1';
 import { Cursor } from 'mongodb';
 import { DatabaseService } from './database.service';
+import * as argon from 'argon2';
 
 @Injectable()
 export class UserService {
@@ -10,19 +11,54 @@ export class UserService {
     private collection = 'users';
 
     constructor(private databaseService: DatabaseService) {
+        // this.databaseService.isConnected().subscribe(isConnected => {
+        //     if (isConnected) {
+        //         this.databaseService.createIndex(this.collection, 'userId', 1, { unique: true }).then();
+        //         this.databaseService.createIndex(this.collection, 'name', 1, { unique: true }).then();
+        //     }
+        // });
+    }
 
+    public deletePrivateUserData(user: User) {
+        delete user.friends;
+        delete user.password;
+        delete user.sessionId;
+    }
+
+    public deletePrivateUsersData(users: User[]) {
+
+        users.forEach(user => {
+            delete user.friends;
+            delete user.password;
+            delete user.sessionId;
+        });
     }
 
     public async createUser(name: string, password: string): Promise<User> {
         const newUser: User = {
             id: uuid(),
             name,
-            password
+            password: await argon.hash(password),
+            friends: [],
         };
 
-        await this.databaseService.insertDocument(this.collection, newUser)
+        await this.databaseService.insertDocument(this.collection, newUser);
 
         return newUser;
+    }
+
+    public async addFriend(userId: string, friendUserId: string) {
+        const user = await this.findById(userId);
+
+        user.friends.push(friendUserId);
+
+        await this.databaseService.replaceDocument(this.collection, { id: userId }, user);
+    }
+
+    public async findFriends(friends: string[]) {
+        const foundUsers = await this.databaseService.findDocuments(this.collection, { friends: { $in: friends } });
+
+        return foundUsers;
     }
 
     public async findByName(name: string): Promise<User | null> {
@@ -44,6 +80,10 @@ export class UserService {
 
     public async findAll(): Promise<Cursor<User>> {
         return await this.databaseService.findDocuments(this.collection, {});
+    }
+
+    public async updateUser(user: User) {
+        await this.databaseService.replaceDocument(this.collection, { id: user.id }, user);
     }
 
     public async setSessionId(id: string, sessionId: string) {
@@ -68,5 +108,13 @@ export class UserService {
         const user = await this.databaseService.findDocument(this.collection, { id }) as User;
 
         return user.sessionId;
+    }
+
+    public async searchByName(name: string) {
+        const users = await (await this.databaseService.searchFromField(this.collection, 'name', name)).toArray() as User[];
+
+        this.deletePrivateUsersData(users);
+
+        return users;
     }
 }

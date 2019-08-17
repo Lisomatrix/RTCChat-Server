@@ -1,8 +1,6 @@
-import { Injectable, CanActivate, ExecutionContext } from "@nestjs/common";
-import { Observable } from "rxjs";
-import { TokenService } from "src/services/token.service";
-import { cpus } from "os";
-import { UserService } from "src/services/user.service";
+import { Injectable, CanActivate, ExecutionContext } from '@nestjs/common';
+import { TokenService } from '../services/token.service';
+import { UserService } from '../services/user.service';
 
 @Injectable()
 export class AuthGuard implements CanActivate {
@@ -12,8 +10,8 @@ export class AuthGuard implements CanActivate {
   }
 
   async canActivate(
-    context: ExecutionContext
-  ) {
+    context: ExecutionContext,
+  ): Promise<boolean> {
 
     const token = context.switchToWs().getClient().handshake.query.token;
 

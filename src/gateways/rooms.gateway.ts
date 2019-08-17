@@ -4,8 +4,8 @@ import { RoomService } from './../services/room.service';
 import { UserService } from './../services/user.service';
 import { isNull } from 'util';
 import { Observable, Observer } from 'rxjs';
-import { Room } from 'src/models/room';
-import { AuthGuard } from 'src/guards/websocket.guard';
+import { Room } from '../models/room';
+import { AuthGuard } from '../guards/websocket.guard';
 import { UseGuards } from '@nestjs/common';
 
 interface NewRoom {
@@ -24,16 +24,15 @@ export class RoomsGateway {
     server: Server;
 
     constructor(private roomService: RoomService, private useService: UserService) {
-        
+
     }
 
     @SubscribeMessage('new_room')
-    private async handleNewRoom(client: Client, receivedData: string): Promise<WsResponse<any>> {
-        const newRoomData = JSON.parse(receivedData) as NewRoom;
+    private async handleNewRoom(client: Client, newRoom: NewRoom): Promise<WsResponse<any>> {
         const user = await this.useService.findBySessionId(client.id);
-        
+
         if (!isNull(user)) {
-            this.roomService.createRoom(newRoomData.name, user);
+            this.roomService.createRoom(newRoom.name, user);
 
             return { event: 'room_created', data: { } };
         }
@@ -53,7 +52,7 @@ export class RoomsGateway {
     private async handleRoomJoin(client: Client, receivedData: string) {
         const data = JSON.parse(receivedData) as JoinRoom;
         const user = await this.useService.findBySessionId(client.id);
-        console.log(client.id);
+
         if (!isNull(user)) {
             const room = this.roomService.joinRoom(data.id, user, this.server);
 

@@ -1,6 +1,5 @@
-import { Controller, Get } from "@nestjs/common";
-import { UserService } from "src/services/user.service";
-
+import { Controller, Get, Post, Param } from '@nestjs/common';
+import { UserService } from '../services/user.service';
 
 @Controller('/user')
 export class UserController {
@@ -11,11 +10,11 @@ export class UserController {
 
     @Get('/')
     private async getUsers() {
-        const users = await this.userService.findAll();
+        const users = await (await this.userService.findAll()).toArray();
 
-        await users.forEach(user => {
+        users.forEach(user => {
             delete user.password;
-            delete user.sessionId
+            delete user.sessionId;
         });
 
         return users;

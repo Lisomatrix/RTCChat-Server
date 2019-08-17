@@ -1,9 +1,20 @@
-import { WebSocketGateway, WebSocketServer, SubscribeMessage, WsResponse } from "@nestjs/websockets";
-import { Server, Client } from "socket.io";
-import { RoomService } from "src/services/room.service";
-import { UserService } from "src/services/user.service";
-import { UseGuards } from "@nestjs/common";
-import { AuthGuard } from "src/guards/websocket.guard";
+import { WebSocketGateway, WebSocketServer, SubscribeMessage, WsResponse } from '@nestjs/websockets';
+import { Server, Client } from 'socket.io';
+import { RoomService } from '../services/room.service';
+import { UserService } from '../services/user.service';
+import { UseGuards } from '@nestjs/common';
+import { AuthGuard } from '../guards/websocket.guard';
+import { RTCService } from '../services/rtc.service';
+
+export interface RTCData {
+    userId: string;
+    data?: any;
+    sender?: string;
+}
+
+interface CallResponse {
+    callId: string;
+}
 
 @UseGuards(AuthGuard)
 @WebSocketGateway()
@@ -12,36 +23,87 @@ export class RTCGateway {
     @WebSocketServer()
     private server: Server;
 
-    constructor(private roomService: RoomService, private userService: UserService) {
-        
+    constructor(private roomService: RoomService, private userService: UserService, private rtcService: RTCService) {
+
+    }
+
+    @SubscribeMessage('refuse_call')
+    private async handleRefuseCallRequest(client: Client, refuseCallJSON: string): Promise<WsResponse<any>> {
+        const data = JSON.parse(refuseCallJSON) as CallResponse;
+
+        const call = await this.rtcService.findCallById(data.callId);
+
+        this.server.to(call.callerSocketId).emit('call_refused');
+
+        await this.rtcService.deleteCall(data.callId);
+
+        return { event: 'call_refused', data: undefined };
+    }
+
+    @SubscribeMessage('accept_call')
+    private async handleAcceptCallRequest(client: Client, acceptCallJSON: string): Promise<WsResponse<any>> {
+        const data = JSON.parse(acceptCallJSON) as CallResponse;
+
+        const call = await this.rtcService.findCallById(data.callId);
+
+        if (call.receiverSocketId) {
+            return { event: 'call_error', data: { error: 'Call already accepted by another device!' } };
+        }
+
+        call.receiverSocketId = client.id;
+
+        this.server.to(call.callerSocketId).emit('call_accepted');
+
+        return { event: 'accepted', data: undefined };
+    }
+
+    @SubscribeMessage('start_call')
+    private async handleStartCallRequest(client: Client, dataJSON: string): Promise<WsResponse<any>> {
+        const data = JSON.parse(dataJSON) as RTCData;
+        const user = await this.userService.findById((await this.userService.findBySessionId(client.id)).id);
+
+        let isFriend = false;
+
+        for (let i = 0, n = user.friends.length; i < n; i++) {
+            if (user.friends[i] === data.userId) {
+                isFriend = true;
+                break;
+            }
+        }
+
+        const call = await this.rtcService.createCall({ callerId: user.id, receiverId: data.userId }, client.id);
+
+        if (isFriend) {
+            this.server.to(data.userId).emit('start_call', call);
+            return { event: 'call_started', data: call };
+        } else {
+            return { event: 'call_error', data: { error: 'User is not your friend!' } };
+        }
     }
 
     @SubscribeMessage('send_offer')
     private async handleSendOffer(client: Client, receivedData: string): Promise<WsResponse<any>> {
-        const user = await this.userService.findBySessionId(client.id);
-        const member = await this.roomService.getRoomMember(user);
+        const rtcData = JSON.parse(receivedData) as RTCData;
 
-        this.server.to(member.sessionId).emit('receive_offer', receivedData);
+        this.server.to(rtcData.userId).emit('receive_offer', { userId: rtcData.sender, data: rtcData.data });
 
         return { event: 'offer_sent', data: undefined };
     }
 
     @SubscribeMessage('send_answer')
     private async handleSendAnswer(client: Client, receivedData: string): Promise<WsResponse<any>> {
-        const user = await this.userService.findBySessionId(client.id);
-        const member = await this.roomService.getRoomMember(user);
+        const rtcData = JSON.parse(receivedData) as RTCData;
 
-        this.server.to(member.sessionId).emit('receive_answer', receivedData);
+        this.server.to(rtcData.userId).emit('receive_answer', rtcData.data);
 
         return { event: 'answer_sent', data: undefined };
     }
 
     @SubscribeMessage('send_ice')
     private async handleSendIce(client: Client, receivedData: string): Promise<WsResponse<any>> {
-        const user = await this.userService.findBySessionId(client.id);
-        const member = await this.roomService.getRoomMember(user);
+        const rtcData = JSON.parse(receivedData) as RTCData;
 
-        this.server.to(member.sessionId).emit('receive_ice', receivedData);
+        this.server.to(rtcData.userId).emit('receive_ice', rtcData.data);
 
         return { event: 'ice_sent', data: undefined };
     }
