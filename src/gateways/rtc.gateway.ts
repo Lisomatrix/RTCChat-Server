@@ -5,6 +5,7 @@ import { UserService } from '../services/user.service';
 import { UseGuards } from '@nestjs/common';
 import { AuthGuard } from '../guards/websocket.guard';
 import { RTCService } from '../services/rtc.service';
+import { IClient } from 'src/models/client';
 
 export interface RTCData {
     userId: string;
@@ -28,7 +29,7 @@ export class RTCGateway {
     }
 
     @SubscribeMessage('refuse_call')
-    private async handleRefuseCallRequest(client: Client, refuseCallJSON: string): Promise<WsResponse<any>> {
+    private async handleRefuseCallRequest(client: IClient, refuseCallJSON: string): Promise<WsResponse<any>> {
         const data = JSON.parse(refuseCallJSON) as CallResponse;
 
         const call = await this.rtcService.findCallById(data.callId);
@@ -41,7 +42,7 @@ export class RTCGateway {
     }
 
     @SubscribeMessage('accept_call')
-    private async handleAcceptCallRequest(client: Client, acceptCallJSON: string): Promise<WsResponse<any>> {
+    private async handleAcceptCallRequest(client: IClient, acceptCallJSON: string): Promise<WsResponse<any>> {
         const data = JSON.parse(acceptCallJSON) as CallResponse;
 
         const call = await this.rtcService.findCallById(data.callId);
@@ -58,9 +59,10 @@ export class RTCGateway {
     }
 
     @SubscribeMessage('start_call')
-    private async handleStartCallRequest(client: Client, dataJSON: string): Promise<WsResponse<any>> {
+    private async handleStartCallRequest(client: IClient, dataJSON: string): Promise<WsResponse<any>> {
         const data = JSON.parse(dataJSON) as RTCData;
-        const user = await this.userService.findById((await this.userService.findBySessionId(client.id)).id);
+
+        const user = client.user;
 
         let isFriend = false;
 
@@ -82,7 +84,7 @@ export class RTCGateway {
     }
 
     @SubscribeMessage('send_offer')
-    private async handleSendOffer(client: Client, receivedData: string): Promise<WsResponse<any>> {
+    private async handleSendOffer(client: IClient, receivedData: string): Promise<WsResponse<any>> {
         const rtcData = JSON.parse(receivedData) as RTCData;
 
         this.server.to(rtcData.userId).emit('receive_offer', { userId: rtcData.sender, data: rtcData.data });
@@ -91,7 +93,7 @@ export class RTCGateway {
     }
 
     @SubscribeMessage('send_answer')
-    private async handleSendAnswer(client: Client, receivedData: string): Promise<WsResponse<any>> {
+    private async handleSendAnswer(client: IClient, receivedData: string): Promise<WsResponse<any>> {
         const rtcData = JSON.parse(receivedData) as RTCData;
 
         this.server.to(rtcData.userId).emit('receive_answer', rtcData.data);
@@ -100,7 +102,7 @@ export class RTCGateway {
     }
 
     @SubscribeMessage('send_ice')
-    private async handleSendIce(client: Client, receivedData: string): Promise<WsResponse<any>> {
+    private async handleSendIce(client: IClient, receivedData: string): Promise<WsResponse<any>> {
         const rtcData = JSON.parse(receivedData) as RTCData;
 
         this.server.to(rtcData.userId).emit('receive_ice', rtcData.data);

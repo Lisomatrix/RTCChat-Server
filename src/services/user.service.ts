@@ -4,25 +4,27 @@ import * as uuid from 'uuid/v1';
 import { Cursor } from 'mongodb';
 import { DatabaseService } from './database.service';
 import * as argon from 'argon2';
+import { userInfo } from 'os';
+import { WebSocketServer } from '@nestjs/websockets';
+import { Server } from 'socket.io';
 
 @Injectable()
 export class UserService {
 
     private collection = 'users';
 
+    @WebSocketServer()
+    private server: Server;
+
     constructor(private databaseService: DatabaseService) {
-        // this.databaseService.isConnected().subscribe(isConnected => {
-        //     if (isConnected) {
-        //         this.databaseService.createIndex(this.collection, 'userId', 1, { unique: true }).then();
-        //         this.databaseService.createIndex(this.collection, 'name', 1, { unique: true }).then();
-        //     }
-        // });
     }
 
     public deletePrivateUserData(user: User) {
         delete user.friends;
         delete user.password;
         delete user.sessionId;
+        // @ts-ignore
+        delete user._id;
     }
 
     public deletePrivateUsersData(users: User[]) {
@@ -31,6 +33,8 @@ export class UserService {
             delete user.friends;
             delete user.password;
             delete user.sessionId;
+            // @ts-ignore
+            delete user._id;
         });
     }
 
@@ -53,6 +57,14 @@ export class UserService {
         user.friends.push(friendUserId);
 
         await this.databaseService.replaceDocument(this.collection, { id: userId }, user);
+
+        const friend = await this.findById(friendUserId);
+
+        this.deletePrivateUserData(friend);
+        this.deletePrivateUserData(user);
+
+        this.server.to(user.id).emit('new_user', friend);
+        this.server.to(friend.id).emit('new_user', user);
     }
 
     public async findFriends(friends: string[]) {

@@ -1,6 +1,7 @@
 import { Injectable, LoggerService, Logger } from '@nestjs/common';
 import { MongoClient, Db, FilterQuery } from 'mongodb';
 import { BehaviorSubject } from 'rxjs';
+import { ConfigService } from '../config/config.service';
 
 @Injectable()
 export class DatabaseService {
@@ -8,14 +9,17 @@ export class DatabaseService {
     private readonly logger = new Logger(DatabaseService.name);
 
     private client: MongoClient;
-    private URL = 'mongodb+srv://chat_application:tictic5532@chat-050ph.azure.mongodb.net/test?retryWrites=true&w=majority';
-    private DB_NAME = 'chat';
+    private URL: string;
+    private DB_NAME: string;
 
     private database: Db;
 
     private connectedSubject = new BehaviorSubject(false);
 
-    constructor() {
+    constructor(config: ConfigService) {
+        this.URL = config.get('DATABASE_URL');
+        this.DB_NAME = config.get('DB_NAME');
+
         this.connect().then();
     }
 
@@ -69,6 +73,14 @@ export class DatabaseService {
         }
 
         return await this.database.collection(collection).deleteOne(query);
+    }
+
+    public async deleteDocumentsByQuery(collection: string, query: FilterQuery<any>) {
+        if (!this.checkIfConnected()) {
+            return;
+        }
+
+        return await this.database.collection(collection).deleteMany(query);
     }
 
     public async createIndex(collection: string, fieldName: string, indexType: string | number, options?: object) {

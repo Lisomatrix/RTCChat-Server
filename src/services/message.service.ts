@@ -1,7 +1,8 @@
-import { Injectable } from "@nestjs/common";
-import { DatabaseService } from "./database.service";
+import { Injectable } from '@nestjs/common';
+import { DatabaseService } from './database.service';
 
 export interface IMessage {
+    _id?: any;
     authorId: string;
     destinyId: string;
     message: any;
@@ -23,17 +24,31 @@ export class MessageService {
     }
 
     public async findUnreadMessages(userId: string) {
-        return await this.databaseService.findDocuments(this.collection, { destinyId: userId });
+        let messages = await (await this.databaseService.findDocuments(this.collection, { destinyId: userId })).toArray();
+
+        messages = this.removeDbId(messages);
+
+        return messages;
     }
 
     public async findAllMessages(userId: string) {
-
-        return await this.databaseService.findDocuments(this.collection, { 
+        let messages = await (await this.databaseService.findDocuments(this.collection, {
             $or: [
                 { destinyId: userId },
                 { authorId: userId },
             ],
-        });
-        // return await this.databaseService.findDocuments(this.collection, { destinyId: userId });
+        })).toArray();
+
+        messages = this.removeDbId(messages);
+
+        return messages;
+    }
+
+    private removeDbId(messages: IMessage[]) {
+        for (let i = 0, n = messages.length; i < n; i++) {
+            delete messages[i]._id;
+        }
+
+        return messages;
     }
 }

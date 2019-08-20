@@ -6,9 +6,12 @@ import { RoomService } from './room.service';
 import { RTCService } from './rtc.service';
 import { MessageService } from './message.service';
 import { RedisService } from './redis.service';
+import { ConfigModule } from '../config/config.module';
+import { FriendRequestService } from './friend.requests.service'
 
 @Module({
-    providers: [ RedisService, DatabaseService, TokenService, UserService, RoomService, RTCService, MessageService ],
-    exports: [ RedisService, DatabaseService, TokenService, UserService, RoomService, RTCService, MessageService ],
+    imports: [ ConfigModule ],
+    providers: [ FriendRequestService, RedisService, DatabaseService, TokenService, UserService, RoomService, RTCService, MessageService ],
+    exports: [ FriendRequestService, RedisService, DatabaseService, TokenService, UserService, RoomService, RTCService, MessageService ],
 })
 export class ServicesModule {}
